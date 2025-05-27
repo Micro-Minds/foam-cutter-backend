@@ -14,7 +14,8 @@
     "@types/express": "^5.0.2",
     "cors": "^2.8.5",
     "express": "^5.1.0",
-    "prisma": "^6.8.2"
+    "prisma": "^6.8.2",
+    "serialport": "^13.0.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.18",
