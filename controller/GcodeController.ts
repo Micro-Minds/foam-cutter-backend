@@ -13,7 +13,7 @@ export const generateCircleGCode = async (req: Request, res: Response) => {
     console.log(gcode);
 
     try {
-        await sendGCodeToArduino(gcode, "COM3", 115200);
+        await sendGCodeToArduino(gcode, "COM7", 115200);
         res.status(200).json({ message: "G-code sent to Arduino successfully." });
     } catch (error: any) {
         res.status(500).json({ error: "Failed to send G-code", detail: error.message });

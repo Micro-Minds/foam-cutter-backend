@@ -1,40 +1,63 @@
-import { SerialPort } from "serialport";
+import {SerialPort} from "serialport";
 
 export const sendGCodeToArduino = async (
     gcode: string,
-    portName: string = "COM3", // Use the actual port ESP32 is connected to
-    baudRate: number = 115200
+    portName = "COM7",
+    baudRate = 115200
 ): Promise<void> => {
     return new Promise((resolve, reject) => {
-        const port = new SerialPort({ path: portName, baudRate: baudRate }, (err) => {
-            if (err) return reject(err);
+        const port = new SerialPort({ path: portName, baudRate }, (err) => {
+            if (err) {
+                console.error("Error opening serial port:", err.message);
+                return reject(new Error(`Error opening serial port: ${err.message}`));
+            }
         });
 
-        port.on("open", () => {
-            console.log("Serial port opened");
-            const lines = gcode.split("\n");
-            let i = 0;
+        const lines = gcode.split("\n").filter(line => line.trim().length > 0);
+        let currentLine = 0;
+        let buffer = "";
 
-            const sendLine = () => {
-                if (i >= lines.length) {
-                    console.log("Finished sending G-code");
-                    port.write("\n", () => port.close());
-                    return resolve();
-                }
-
-                const line = lines[i++];
-                port.write(line + "\n", (err) => {
-                    if (err) console.error("Write error:", err.message);
+        // Function to send the next line
+        const sendNextLine = () => {
+            if (currentLine < lines.length) {
+                const lineToSend = lines[currentLine++];
+                console.log("📤 Sending:", lineToSend);
+                port.write(lineToSend + "\n");
+            } else {
+                // All lines sent, close port gracefully
+                port.write("\n", () => {
+                    port.drain(() => {
+                        port.close(() => {
+                            console.log("✅ Finished sending G-code and closed port.");
+                            resolve();
+                        });
+                    });
                 });
+            }
+        };
 
-                setTimeout(sendLine, 50);
-            };
+        port.on("open", () => {
+            console.log("✅ Serial port opened:", portName);
+            sendNextLine(); // start sending first line
+        });
 
-            sendLine();
+        // **Insert your updated data event handler here:**
+        port.on("data", (data) => {
+            buffer += data.toString();
+            process.stdout.write("📥 " + data.toString());
+
+            // Remove echo lines from buffer
+            buffer = buffer.replace(/Received:.*(\r\n|\n)/g, "");
+
+            // Check if buffer has "ok" or "ACK" acknowledging the last command
+            if (buffer.includes("ok") || buffer.includes("OK") || buffer.includes("ACK")) {
+                buffer = "";  // Clear for next response
+                sendNextLine();
+            }
         });
 
         port.on("error", (err) => {
-            console.error("Serial port error:", err.message);
+            console.error("❌ Serial port error:", err.message);
             reject(err);
         });
     });
